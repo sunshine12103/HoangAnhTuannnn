@@ -43,6 +43,7 @@ int stateLake1;
 int stateLake2;
 float weight_kg;
 float new_weight_kg;
+bool stateLoadCell = false;
 RTC_DS1307 rtc;
 typedef struct  {
   uint8_t hour;
@@ -110,7 +111,7 @@ void readLoadCell()
     buttonPressed = false; 
   }
 
-  new_weight_kg = weight_kg - tare_weight;  
+  new_weight_kg = weight_kg - tare_weight + 1.3;  
   if(new_weight_kg < 0 )
   {
     new_weight_kg =0;
@@ -152,12 +153,19 @@ void setupBLDC()
 }
 void setupds1307()
 {
-  if (!rtc.begin()) {
-    while (1);
-  }
-  if (!rtc.isrunning()) {
-    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-  }
+  if (! rtc.begin())
+ {
+   Serial.print("Couldn't find RTC");
+   while (1);
+ }
+
+  if (! rtc.isrunning())
+ {
+   Serial.print("RTC is NOT running!");
+   Serial.println();
+ }
+   rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+   //rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
 }
 void setHomeDC(){
   // tìm công tắc hành trình
@@ -284,20 +292,28 @@ void caculateOFF2() {
   int currentHour = thoiGian.hour;
   int currentMinute = thoiGian.minute;
   if (lake1 == 1 && currentHour == hourOn1 && currentMinute >= minuteOn1 && currentMinute < minuteOff1 && emergency == 1 && stateLake1 == 1) {
-    Serial.println("Lake1 hoạt động");
+    //Serial.println("Lake1 hoạt động");
     controlDC1(lake1);
+    stateLoadCell = false;
+
   } else {
-    Serial.println("Lake1 tắt");
+    //Serial.println("Lake1 tắt");
     controlDC1(0);
     esc.writeMicroseconds(1000);
+    stateLoadCell = true;
+
   }
   if (lake2 == 2 && currentHour == hourOn2 && currentMinute >= minuteOn2 && currentMinute < minuteOff2 && emergency == 1 && stateLake2 == 1) {
-    Serial.println("Lake2 hoạt động");
+    //Serial.println("Lake2 hoạt động");
     controlDC2(lake2);
+    stateLoadCell = false;
+
   } else {
-    Serial.println("Lake2 tắt");
+    //Serial.println("Lake2 tắt");
     controlDC2(0);
     esc.writeMicroseconds(1000);
+    stateLoadCell = true;
+
   }
 }
 void setup()
@@ -306,11 +322,16 @@ void setup()
   setupReceive();
   setupDC();
   setupBLDC();
+  Serial.println("Setup xong BLDC");
+
   setupds1307();
+  Serial.println("Setup xong ds1307");
+
   pinMode(RULO_PIN, OUTPUT);
-  //setupLCD();
-  //setupLoadCell();
+  setupLCD();
+  setupLoadCell();
   setHomeDC();
+  Serial.println("Setup done");
 }
 
 void loop()
@@ -318,4 +339,6 @@ void loop()
   readTime();
   receiveSerialData();
   caculateOFF2();
+  readLoadCell();
+  displayLCD();
 }
